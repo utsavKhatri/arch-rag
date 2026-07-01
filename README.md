@@ -6,18 +6,31 @@ All embedding is 100% local (`all-MiniLM-L6-v2` via `@xenova/transformers`). Inf
 
 ---
 
+## Demo
+
+<video src="public/demo.mov" controls width="100%"></video>
+
+> If the inline player doesn't load (Chrome doesn't play `.mov`), [download the demo](public/demo.mov) or open it in Safari / QuickTime.
+
+---
+
 ## How it works
 
 ```
-Codebase source          Index pipeline            Audit pipeline
-─────────────────        ──────────────────        ──────────────────────────
-Upload files     ──┐     Chunk (2 000-char         Query top-30 chunks
-Local directory  ──┤──▶  overlapping windows) ──▶  by semantic similarity
-Git URL (clone)  ──┘     Embed (MiniLM, local) ──▶ Stream structured JSON
-                         Store in ChromaDB          via Ollama or Gemini
+Codebase source          Index pipeline             Audit pipeline
+─────────────────        ──────────────────         ──────────────────────────
+Upload files     ──┐     Chunk (2 000-char          Multi-query retrieval:
+Local directory  ──┘──▶  overlapping windows)  ──▶   3 concern-targeted queries
+                         Embed (MiniLM, local)  ──▶  (security / architecture /
+                         Store in ChromaDB           complexity), deduped with a
+                                                     per-file diversity cap
+                                                        │
+                                                        ▼
+                                                     Stream structured JSON
+                                                     via Ollama or Gemini
 ```
 
-The audit result is validated against a Zod schema and streamed field-by-field using the Vercel AI SDK's `streamObject`. You see modules appear as the model writes them.
+The audit result is validated against a Zod schema and streamed field-by-field using the Vercel AI SDK's `streamText` with `Output.object`. You see modules appear live as the model writes them. Completed audits are cached in `sessionStorage` (keyed by session + model + provider) so revisiting the results page is instant and costs no extra LLM call.
 
 ---
 
@@ -31,10 +44,21 @@ The audit result is validated against a Zod schema and streamed field-by-field u
 
 ### Start ChromaDB
 
+No Python needed — run it via npx:
+
 ```bash
-pip install chromadb
-chroma run --port 8000
+bun run chroma:start     # npx chroma run --path ./.chroma-data --port 8000
 ```
+
+Helper scripts:
+
+| Script | What it does |
+|---|---|
+| `bun run chroma:start` | Start ChromaDB on `:8000` (foreground) |
+| `bun run chroma:stop` | Stop ChromaDB |
+| `bun run chroma:status` | Check if it's running |
+| `bun run dev:full` | Start ChromaDB (background) + Next.js dev together |
+| `bun run stop:all` | Stop both ChromaDB and the dev server |
 
 Or with Docker:
 
@@ -102,7 +126,6 @@ OLLAMA_BASE_URL=http://localhost:11434/v1
 |---|---|
 | **Upload files** | Drag-and-drop individual files from your machine |
 | **Local directory** | Absolute path to any directory on the server's filesystem |
-| **Git URL** | Any `https://` or `git@` repository — cloned with `--depth 1` |
 
 The indexer automatically ignores `node_modules`, `.git`, `dist`, `build`, `.next`, lock files, `.env*` files, and any patterns defined in `.gitignore`, `.agentignore`, or `.dockerignore` found in the target directory.
 
@@ -138,7 +161,7 @@ bun run build    # production build
 ### Tech stack
 
 - **Next.js 16** (App Router, Turbopack)
-- **Vercel AI SDK v6** — `streamObject` for typed streaming, `useObject` on the client
+- **Vercel AI SDK v6** — `streamText` + `Output.object` for typed streaming, `useObject` on the client
 - **`@xenova/transformers`** — local embeddings (all-MiniLM-L6-v2, ONNX)
 - **ChromaDB** — vector store, one collection per session
 - **Zod v4** — audit schema shared between server and client
@@ -154,8 +177,9 @@ app/
   api/audit/route.ts     — stream structured audit JSON (Ollama or Gemini)
   api/index/route.ts     — index pipeline, SSE progress stream
   api/models/route.ts    — list available Ollama models
+  api/config/route.ts    — reports whether GEMINI_API_KEY is set (never the key)
   page.tsx               — wizard (source + provider selection)
-  audit/page.tsx         — live audit results dashboard
+  audit/page.tsx         — live audit results dashboard (with sessionStorage caching)
 components/
   wizard/                — source selector, model selector, Gemini config, run button
   dashboard/             — audit header, metrics strip, module cards
@@ -169,7 +193,6 @@ lib/
   sources/
     shared.ts            — unified extensions, ignore patterns, path/URL validation
     directory.ts         — gitignore-aware directory extraction
-    git.ts               — git clone + extract
     upload.ts            — multipart file upload extraction
 ```
 
@@ -179,5 +202,5 @@ lib/
 
 - Embeddings always run locally — your code is never sent to any embedding API.
 - **Ollama mode**: the entire pipeline is local. Nothing leaves your machine.
-- **Gemini mode**: chunk text is sent to Google's API for inference only. The Gemini API key is stored in `sessionStorage` for the duration of the browser session (or in `.env` if you set it there) — it is never logged or persisted by the app server.
-- ChromaDB stores embeddings and chunk text in memory (default) or on disk depending on your ChromaDB configuration. Sessions are not cleaned up automatically.
+- **Gemini mode**: chunk text is sent to Google's API for inference only. The Gemini API key is stored in `sessionStorage` for the duration of the browser session (or in `.env` if you set it there) — it is never logged, never put in a URL, and never persisted by the app server. If `GEMINI_API_KEY` is set in `.env`, the UI detects it (via `/api/config`, which returns only a boolean) and makes the key input optional; a key typed in the UI always overrides the server key.
+- ChromaDB persists embeddings and chunk text to disk under `./.chroma-data` (git-ignored). Sessions are not cleaned up automatically.
