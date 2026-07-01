@@ -6,12 +6,27 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "chroma:start": "npx chroma run --path ./.chroma-data --port 8000",
+    "chroma:stop": "lsof -ti:8000 | xargs kill -9 2>/dev/null && echo 'ChromaDB stopped' || echo 'ChromaDB was not running'",
+    "chroma:status": "curl -sf http://localhost:8000/api/v2/heartbeat > /dev/null && echo 'ChromaDB ✓  running on :8000' || echo 'ChromaDB ✗  not running'",
+    "dev:full": "npx chroma run --path ./.chroma-data --port 8000 & sleep 3 && bun dev",
+    "stop:all": "{ lsof -ti:3000 -ti:8000 2>/dev/null | xargs kill -9 2>/dev/null && echo 'All services stopped'; } || echo 'Nothing running'"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.0",
+    "@ai-sdk/openai": "^3.0.67",
+    "@ai-sdk/react": "^3.0.195",
+    "@xenova/transformers": "^2.17.2",
+    "ai": "^6.0.193",
+    "chromadb": "^3.4.3",
+    "glob": "^13.0.6",
     "next": "16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "simple-git": "^3.36.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,12 +36,10 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.7"
   },
-  "ignoreScripts": [
-    "sharp",
-    "unrs-resolver"
-  ],
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"

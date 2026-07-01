@@ -1,65 +1,155 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { FileDropzone } from "@/components/wizard/FileDropzone"
+import { DirectoryInput } from "@/components/wizard/DirectoryInput"
+import { GitInput } from "@/components/wizard/GitInput"
+import { GeminiConfig, DEFAULT_GEMINI_MODEL } from "@/components/wizard/GeminiConfig"
+import { ModelSelector } from "@/components/wizard/ModelSelector"
+import { RunButton } from "@/components/wizard/RunButton"
+import { SourceSelector, type SourceType } from "@/components/wizard/SourceSelector"
+
+const PROVIDER_TABS = [
+  { id: "ollama" as const, label: "Ollama (local)" },
+  { id: "gemini" as const, label: "Gemini (cloud)" },
+]
+
+export default function WizardPage() {
+  const router = useRouter()
+
+  const [sourceType, setSourceType] = useState<SourceType>("upload")
+  const [files, setFiles] = useState<File[]>([])
+  const [directoryPath, setDirectoryPath] = useState("")
+  const [gitUrl, setGitUrl] = useState("")
+  const [provider, setProvider] = useState<"ollama" | "gemini">("ollama")
+  const [model, setModel] = useState("")
+  const [apiKey, setApiKey] = useState("")
+  const [busy, setBusy] = useState(false)
+  // null = still probing the server; true/false once known.
+  const [serverKeyConfigured, setServerKeyConfigured] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (provider === "gemini" && !model) {
+      setModel(DEFAULT_GEMINI_MODEL)
+    }
+  }, [provider, model])
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((d: { geminiKeyConfigured?: boolean }) =>
+        setServerKeyConfigured(!!d.geminiKeyConfigured)
+      )
+      .catch(() => setServerKeyConfigured(false))
+  }, [])
+
+  function handleSuccess(sessionId: string) {
+    if (provider === "gemini" && apiKey) {
+      sessionStorage.setItem(`gemini-key-${sessionId}`, apiKey)
+    }
+    router.push(
+      `/audit?session=${sessionId}&model=${encodeURIComponent(model)}&provider=${provider}`
+    )
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-16">
+      <div className="w-full max-w-xl space-y-8">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+            Arch-RAG
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-sm text-zinc-500">
+            Architectural intelligence. 100% local embedding — zero code leaves your machine.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-6">
+          {/* Config — disabled as a unit while indexing so source/provider/model
+              can't change mid-run (which would desync the navigation params). */}
+          <fieldset
+            disabled={busy}
+            className={`m-0 min-w-0 space-y-6 border-0 p-0 transition-opacity ${
+              busy ? "opacity-50" : ""
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {/* Source */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-zinc-700">
+                Codebase source
+              </label>
+              <SourceSelector value={sourceType} onChange={setSourceType} />
+              <div className="pt-1">
+                {sourceType === "upload" && (
+                  <FileDropzone files={files} onChange={setFiles} disabled={busy} />
+                )}
+                {sourceType === "directory" && (
+                  <DirectoryInput value={directoryPath} onChange={setDirectoryPath} />
+                )}
+                {sourceType === "git" && (
+                  <GitInput value={gitUrl} onChange={setGitUrl} />
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-zinc-100" />
+
+            {/* Provider + Model */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-zinc-700">
+                Inference provider
+              </label>
+              <div className="relative flex gap-0 border border-zinc-200 rounded-lg p-1 bg-zinc-50">
+                {PROVIDER_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setProvider(tab.id)}
+                    className={`relative flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:cursor-not-allowed ${
+                      provider === tab.id
+                        ? "bg-white text-zinc-900 shadow-sm"
+                        : "text-zinc-500 hover:text-zinc-700"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {provider === "ollama" && (
+                <ModelSelector value={model} onChange={setModel} />
+              )}
+              {provider === "gemini" && (
+                <GeminiConfig
+                  model={model}
+                  onModelChange={setModel}
+                  apiKey={apiKey}
+                  onApiKeyChange={setApiKey}
+                  serverKeyConfigured={serverKeyConfigured}
+                />
+              )}
+            </div>
+          </fieldset>
+
+          {/* CTA */}
+          <RunButton
+            sourceType={sourceType}
+            files={files}
+            directoryPath={directoryPath}
+            gitUrl={gitUrl}
+            model={model}
+            provider={provider}
+            apiKey={apiKey}
+            serverKeyConfigured={serverKeyConfigured}
+            onSuccess={handleSuccess}
+            onBusyChange={setBusy}
+          />
         </div>
-      </main>
+
+        <p className="text-center text-xs text-zinc-400">
+          Embeddings: local (all-MiniLM-L6-v2) · ChromaDB on :8000
+          {provider === "ollama" && " · Ollama on :11434"}
+        </p>
+      </div>
     </div>
-  );
+  )
 }
