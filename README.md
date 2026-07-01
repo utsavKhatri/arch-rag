@@ -8,11 +8,9 @@ All embedding is 100% local (`all-MiniLM-L6-v2` via `@xenova/transformers`). Inf
 
 ## Demo
 
-https://github.com/utsavKhatri/arch-rag/raw/main/public/demo.mp4
+![Arch-RAG demo](https://github.com/utsavKhatri/arch-rag/raw/main/public/demo.gif)
 
-<video src="https://github.com/utsavKhatri/arch-rag/raw/main/public/demo.mp4" controls muted width="100%"></video>
-
-> The player renders inline on GitHub once `public/demo.mp4` is pushed to `main`. Locally it's at [`public/demo.mp4`](public/demo.mp4).
+> ▶️ [Watch the full-quality MP4](https://github.com/utsavKhatri/arch-rag/raw/main/public/demo.mp4) (with controls)
 
 ---
 
