@@ -45,3 +45,9 @@ next-env.d.ts
 
 # transformer model cache
 .cache/
+
+# local tooling / editor config
+.claude/
+
+# internal planning docs
+docs/
