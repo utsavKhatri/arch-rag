@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run",
     "chroma:start": "npx chroma run --path ./.chroma-data --port 8000",
     "chroma:stop": "lsof -ti:8000 | xargs kill -9 2>/dev/null && echo 'ChromaDB stopped' || echo 'ChromaDB was not running'",
     "chroma:status": "curl -sf http://localhost:8000/api/v2/heartbeat > /dev/null && echo 'ChromaDB ✓  running on :8000' || echo 'ChromaDB ✗  not running'",
@@ -36,9 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.7"
+    "typescript": "^5"
   },
   "trustedDependencies": [
     "sharp",
